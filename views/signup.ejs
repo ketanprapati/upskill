@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up</title>
+    <link rel="stylesheet" href="/styles.css"> <!-- Link to your Tailwind CSS file -->
+  </head>
+  <body class="container mx-auto my-20 bg-green-50">
+
+    <h1>Login</h1>
+    <form id="logonForm" class="mx-auto py-20 border border-red-200 max-w-[860px] justify-center items-center" action="/signup" method="POST">
+      <div class="mx-20" >
+        <div class="p-2">
+          <label class="p-4">First Name : 
+            <input type="text" name="firstName" class="px-4 py-3 ml-2" placeholder="Enter Firstname" />
+          </label>
+        </div>
+        <div class="p-2">
+          <label class="p-4">Last Name : 
+            <input type="text" name="lastName" class="px-4 py-3 ml-2" placeholder="Enter LastName" />
+          </label>
+        </div>
+        <div class="p-2">
+          <label class="p-4">Email : 
+            <input type="text" name="email" class="px-4 py-3 ml-2" placeholder="Enter Email" />
+          </label>
+        </div>
+        <div class="p-2">
+          <label class="p-4">Password : 
+            <input type="password" name="password" class="px-4 py-3 ml-2" placeholder="Enter Password" />
+          </label>
+        </div>
+        <div class="p-2">
+          <label class="p-4">Confirm Password : 
+            <input type="password" name="confirmpassword" class="px-4 py-3 ml-2" placeholder="Confirm Password" />
+          </label>
+        </div>
+        <input type="submit" class="border p-4 m-4 rounded-md hover:bg-slate-50 hover:text-purple-700" value="Submit">
+      </div>
+    </form>
+    <p>Already have an account? <a href="/login">Login</a></p>
+  </body>
+</html>

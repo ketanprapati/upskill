@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "es6",                    /* Or any target you prefer */
+    "module": "commonjs",               /* Module system to use */
+    "strict": true,                     /* Recommended settings */
+    "esModuleInterop": true,            /* Required for interoperability */
+    "moduleResolution": "node",         /* Use Node.js style module resolution */
+    "outDir": "./dist",                 /* Output directory */
+    "baseUrl": "./src",                 /* Base directory */
+    "paths": {
+      "*": ["src/*"]                    /* Path mapping for module resolution */
+    }
+  },
+  "include": ["src/**/*.ts"],           /* Include TypeScript files to compile */
+  "exclude": ["node_modules"]           /* Exclude folders like node_modules */
+}

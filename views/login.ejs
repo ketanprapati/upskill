@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="/styles.css"> <!-- Link to your Tailwind CSS file -->
+  </head>
+  <body class="container mx-auto my-20 p-8">
+
+    <h1 class="w-full text-center">Login Form</h1>
+    <form id="logonForm" class="mx-auto py-20 border border-red-200 max-w-[860px] justify-center items-center" action="/login" method="POST">
+      <div class="mx-20" >
+        <div class="p-2">
+          <label>Email : 
+            <input type="text" name="email" class="px-4 py-3 ml-2" placeholder="Enter Email" />
+          </label>
+        </div>
+        <div class="p-2">
+          <label>Password :
+            <input type="password" name="password" class="px-4 py-3 ml-2" placeholder="Enter Password" />
+          </label>
+        </div>
+        <input type="submit" class="border p-4 m-4 rounded-md hover:bg-slate-50 hover:text-purple-700" value="Submit">
+      </div>
+    </form>
+    <a href="/signup" class="text-center text-lg hover:underline-offset-2">Create New Account</a>
+  </body>
+</html>
