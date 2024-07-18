@@ -1,115 +1,96 @@
 import express  from 'express'
-import ConnectDB from './db/ConnectDB'
-import { MongoClient } from 'mongodb';
-var cookieParser = require('cookie-parser');
-var bodyParser   = require('body-parser');
-var session      = require('express-session');
-require('dotenv/config'); 
-// var passport     = require('passport');
+import authenticate from './middleware/authMiddleware'
+import cookieParser from 'cookie-parser';
+import session from 'express-session';
+import bodyParser from 'body-parser';
+import dotenv from 'dotenv';
+import crypto from 'crypto';
+import { findUser, createUser } from './models/User';
+dotenv.config();
 
 const app = express()
 const PORT = process.env.PORT; 
-const MONGODB_URI:string = process.env.MONGODB_URI || ''; 
-const DBName = 'nodejs'
-const CollectionName = 'registerUser'
 
 app.use(bodyParser.json()); // get information from html forms
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cookieParser());
 
+// Generate a secure random secret key
+const generateSecretKey = () => {
+  return crypto.randomBytes(32).toString('base64'); // 32 bytes = 256 bits
+};
+
+app.use(session({
+  secret: generateSecretKey(), // Change this to a secure random string
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false } // Set secure: true if using HTTPS
+}));
 // Set view engine to EJS
 app.set('view engine', 'ejs');
 
 // Serve static assets from the "public" directory
 app.use(express.static("public"));
-const client = new MongoClient(MONGODB_URI)
-
-//session middleware
-app.use(session({
-  secret: "thisismysecrctekey",
-  saveUninitialized:true,
-  cookie: { maxAge: 1000 * 60 * 60 * 2 }, // 2 hours
-  resave: false
-}));
-
-app.use(cookieParser());
 
 app.get('/', async(req:any, res:any) => {
   res.render('index')
 });
-// Authenticate in Database to user exists or not
-async function authenticate(email:any, password:any, fn:any) {
-  const collection = await ConnectDB(client, DBName, CollectionName )
-  console.log('Collection find..')
-  const data = await collection.findOne({ email: email, password: password })
-  console.log('data', data)
-  if (data) {
-    fn(null,data)
-    return { data: 'ok', error: '' }
-  }
-  if (!data) {
-    fn('error', null)
-    return { data: '', error: 'login error' }
-  }
-  fn(null,null)
-}
 
-app.post('/login', async (req:any, res:any, next:any) => {
-  const {email, password} = req.body || {}
-  await authenticate(email, password, function (err:any, user:any) {
-    console.log({ user })
-    if (err) return next(err)
-    if (user) {
-      req.session.user = {
-        email: user?.email,
-        password: user?.password 
-      };
-      res.redirect('/welcome');
-    } else {
-      req.session.error = 'Authentication failed, please check your '
-        + ' username and password.';
-      res.redirect('/failLogin');
-    }
-  });
-  await client.close()
+app.post('/login', authenticate, async (req: any, res: any) => {
+  if (!req.session.user) {
+    return res.status(401).send('Unauthorized. Please login.');
+  }
+  res.redirect("welcome")
 })
-
-app.post('/signup', async (req:any, res:any) => {
+// New Registartion data save in DB.
+app.post('/registration', async (req:any, res:any) => {
   const { firstName, lastName, email, password, confirmpassword } = req.body || {}
   try {
     if (email !== '' && password !== '' && confirmpassword === password) {
-      const collection = await ConnectDB(client, DBName, CollectionName )
-      const data = await collection.findOne({ email: email, password: password })
-
-      if (data !== null) {
-        console.log('User already register')
-      } else {
-        await collection.insertOne({ firstName: firstName, lastName: lastName, email: email, password: password, time: new Date().getTime() })
-        console.log('Registration successfully completed')
-        res.render("home")
+      const existingUser = await findUser(email);
+      if (existingUser) {
+        return res.status(400).json({ message: 'Email already exists' });
       }
+      const result = await createUser(firstName, lastName, email, password);
+      console.log('Registration successfully completed', result)
+      res.redirect("home")
     } else {
       console.log("require fields value is empty..")
+      return res.status(401).json({ message: 'Please fill the empty fields' });
     }
   } catch (error) {
     console.error('Failed to fetch data from DB:', error)
-    throw error
+    res.status(500).json({ message: 'Internal server error' });
   }
-  await client.close()
 })
-
+// Login route
 app.get("/login", (req:any, res:any) => {
   res.render("login")
 })
-app.get("/welcome", (req:any, res:any) => {
+// Login registration route
+app.get("/registration", (req:any, res:any) => {
+  res.render("registration")
+})
+app.get("/welcome", (req: any, res: any) => {
+  if (!req.session.user) {
+    return res.status(401).send('Unauthorized. Please login.');
+  }
   res.render("welcome")
 })
-app.get("/signup", (req:any, res:any) => {
-  res.render("signup")
-})
-
-app.get("/home", (req:any, res:any) => {
+// Home page route
+app.get("/home", (req: any, res: any) => {
   res.render("home")
 })
+
+// Logout route
+app.get('/logout', (req:any, res:any) => {
+  req.session.destroy((err: any) => {
+    if (err) {
+      return res.status(500).send('Error logging out');
+    }
+    res.redirect('/');
+  });
+});
 
 // Start server
 app.listen(PORT, function () {

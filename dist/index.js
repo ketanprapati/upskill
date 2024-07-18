@@ -13,111 +13,95 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const ConnectDB_1 = __importDefault(require("./db/ConnectDB"));
-const mongodb_1 = require("mongodb");
-var cookieParser = require('cookie-parser');
-var bodyParser = require('body-parser');
-var session = require('express-session');
-require('dotenv/config');
-// var passport     = require('passport');
+const authMiddleware_1 = __importDefault(require("./middleware/authMiddleware"));
+const cookie_parser_1 = __importDefault(require("cookie-parser"));
+const express_session_1 = __importDefault(require("express-session"));
+const body_parser_1 = __importDefault(require("body-parser"));
+const dotenv_1 = __importDefault(require("dotenv"));
+const crypto_1 = __importDefault(require("crypto"));
+const User_1 = require("./models/User");
+dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT;
-const MONGODB_URI = process.env.MONGODB_URI || '';
-const DBName = 'nodejs';
-const CollectionName = 'registerUser';
-app.use(bodyParser.json()); // get information from html forms
-app.use(bodyParser.urlencoded({ extended: true }));
+// const MONGODB_URI:string = process.env.MONGODB_URI || ''; 
+// const DB_NAME: string = process.env.DB_NAME || ''
+// const USER_COLLECTION: string = process.env.USER_COLLECTION || ''
+app.use(body_parser_1.default.json()); // get information from html forms
+app.use(body_parser_1.default.urlencoded({ extended: true }));
+app.use((0, cookie_parser_1.default)());
+// Generate a secure random secret key
+const generateSecretKey = () => {
+    return crypto_1.default.randomBytes(32).toString('base64'); // 32 bytes = 256 bits
+};
+app.use((0, express_session_1.default)({
+    secret: generateSecretKey(), // Change this to a secure random string
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false } // Set secure: true if using HTTPS
+}));
 // Set view engine to EJS
 app.set('view engine', 'ejs');
 // Serve static assets from the "public" directory
 app.use(express_1.default.static("public"));
-const client = new mongodb_1.MongoClient(MONGODB_URI);
-//session middleware
-app.use(session({
-    secret: "thisismysecrctekey",
-    saveUninitialized: true,
-    cookie: { maxAge: 1000 * 60 * 60 * 2 }, // 2 hours
-    resave: false
-}));
-app.use(cookieParser());
+// const client = new MongoClient(MONGODB_URI)
 app.get('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     res.render('index');
 }));
-// Authenticate in Database to user exists or not
-function authenticate(email, password, fn) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const collection = yield (0, ConnectDB_1.default)(client, DBName, CollectionName);
-        console.log('Collection find..');
-        const data = yield collection.findOne({ email: email, password: password });
-        console.log('data', data);
-        if (data) {
-            fn(null, data);
-            return { data: 'ok', error: '' };
-        }
-        if (!data) {
-            fn('error', null);
-            return { data: '', error: 'login error' };
-        }
-        fn(null, null);
-    });
-}
-app.post('/login', (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    const { email, password } = req.body || {};
-    yield authenticate(email, password, function (err, user) {
-        console.log({ user });
-        if (err)
-            return next(err);
-        if (user) {
-            req.session.user = {
-                email: user === null || user === void 0 ? void 0 : user.email,
-                password: user === null || user === void 0 ? void 0 : user.password
-            };
-            res.redirect('/welcome');
-        }
-        else {
-            req.session.error = 'Authentication failed, please check your '
-                + ' username and password.';
-            res.redirect('/failLogin');
-        }
-    });
-    yield client.close();
+app.post('/login', authMiddleware_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    if (!req.session.user) {
+        return res.status(401).send('Unauthorized. Please login.');
+    }
+    res.redirect("welcome");
 }));
-app.post('/signup', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+// New Registartion data save in DB.
+app.post('/registration', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { firstName, lastName, email, password, confirmpassword } = req.body || {};
     try {
         if (email !== '' && password !== '' && confirmpassword === password) {
-            const collection = yield (0, ConnectDB_1.default)(client, DBName, CollectionName);
-            const data = yield collection.findOne({ email: email, password: password });
-            if (data !== null) {
-                console.log('User already register');
+            const existingUser = yield (0, User_1.findUser)(email);
+            if (existingUser) {
+                return res.status(400).json({ message: 'Username already exists' });
             }
-            else {
-                yield collection.insertOne({ firstName: firstName, lastName: lastName, email: email, password: password, time: new Date().getTime() });
-                console.log('Registration successfully completed');
-                res.render("home");
-            }
+            const result = yield (0, User_1.createUser)(firstName, lastName, email, password);
+            console.log('Registration successfully completed', result);
+            res.redirect("home");
         }
         else {
             console.log("require fields value is empty..");
+            return res.status(401).json({ message: 'Please fill the empty fields' });
         }
     }
     catch (error) {
         console.error('Failed to fetch data from DB:', error);
-        throw error;
+        res.status(500).json({ message: 'Internal server error' });
     }
-    yield client.close();
 }));
+// Login route
 app.get("/login", (req, res) => {
     res.render("login");
 });
+// Login registration route
+app.get("/registration", (req, res) => {
+    res.render("registration");
+});
 app.get("/welcome", (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).send('Unauthorized. Please login.');
+    }
     res.render("welcome");
 });
-app.get("/signup", (req, res) => {
-    res.render("signup");
-});
+// Home page route
 app.get("/home", (req, res) => {
     res.render("home");
+});
+// Logout route
+app.get('/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            return res.status(500).send('Error logging out');
+        }
+        res.redirect('/');
+    });
 });
 // Start server
 app.listen(PORT, function () {
